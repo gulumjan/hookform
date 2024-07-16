@@ -4,20 +4,38 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import scss from "./Upload.module.scss";
 
 interface IFormInput {
+  _id?: number;
   title: string;
   email: string;
   file: string[];
 }
+
+interface IDataTodos {
+  _id: number;
+  title: string;
+  email: string;
+  icCompleted: boolean;
+  img: string;
+}
 const UploadFile = () => {
-  const { register, handleSubmit, reset } = useForm<IFormInput>();
-  const [data, setData] = useState<object[]>([]);
-  const [_id, setId] = useState<null | number>(null);
+  const {
+    register: registerAdd,
+    handleSubmit: handleSubmitAdd,
+    reset,
+    formState: { isSubmitting: isSubmittingAdd },
+  } = useForm<IFormInput>();
+  const {
+    register: registerEdit,
+    handleSubmit: handleSubmitEdit,
+    formState: { isSubmitting: isSubmittingEdit },
+    setValue,
+  } = useForm<IFormInput>();
+
+  const [data, setData] = useState<IDataTodos[]>([]);
   const [edId, setEdId] = useState<number | null>(null);
   const [edit, setEdit] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const onSubmit: SubmitHandler<IFormInput> = async (data) => {
-    setIsLoading(true);
     const file = data.file[0];
     const formData = new FormData();
 
@@ -39,7 +57,6 @@ const UploadFile = () => {
       }/251331a97875ec7a37511b4088176f71/form`,
       newData
     );
-    setIsLoading(false);
     console.log(responseTodos);
     setData(responseTodos);
     reset();
@@ -67,37 +84,33 @@ const UploadFile = () => {
     fetchTodos();
   }
 
-  // const updateItem = async (_id: number, newFile: File | null) => {
-  //   try {
-  //     if (!newFile) return;
+  const updateItem: SubmitHandler<IFormInput> = async (data) => {
+    try {
+      const file = data.file[0];
+      const formData = new FormData();
 
-  //     const formData = new FormData();
-  //     formData.append("file", newFile);
+      formData.append("file", file);
 
-  //     const { data: responseImg } = await axios.post(
-  //       "https://api.elchocrud.pro/api/v1/upload/file",
-  //       formData
-  //     );
-
-  //     const { data: updatedTodo } = await axios.patch(
-  //       `${
-  //         import.meta.env.VITE_BACKEND_URL
-  //       }/251331a97875ec7a37511b4088176f71/form/${_id}`,
-  //       { img: responseImg.url, title: data }
-  //     );
-
-  //     setData((prevTodos) =>
-  //       prevTodos.map((todo) =>
-  //         todo._id === _id ? { ...todo, img: updatedTodo.img } : todo
-  //       )
-  //     );
-
-  //     setEdit(false);
-  //   } catch (error) {
-  //     console.error("Ошибка при обновлении:", error);
-  //   }
-  //   fetchTodos();
-  // };
+      const { data: responseImage } = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/upload/file`,
+        formData
+      );
+      const updateData = {
+        title: data.title,
+        img: responseImage.url,
+      };
+      const { data: responseTodos } = await axios.patch(
+        `${
+          import.meta.env.VITE_BACKEND_URL
+        }/251331a97875ec7a37511b4088176f71/form/${edId}`,
+        updateData
+      );
+      console.log(responseTodos);
+      fetchTodos();
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   useEffect(() => {
     fetchTodos();
@@ -107,15 +120,15 @@ const UploadFile = () => {
     <div className={scss.todos}>
       <h1>Upload File</h1>
       <div className={scss.cards}>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmitAdd(onSubmit)}>
           <input
-            {...register("title", { required: true })}
+            {...registerAdd("title", { required: true })}
             placeholder="title"
             type="text"
           />
           <input
             placeholder="email"
-            {...register("email", {
+            {...registerAdd("email", {
               required: true,
               pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
             })}
@@ -123,10 +136,10 @@ const UploadFile = () => {
           />
           <input
             className={scss.fileInp}
-            {...register("file", { required: true })}
+            {...registerAdd("file", { required: true })}
             type="file"
           />
-          {isLoading ? (
+          {isSubmittingAdd ? (
             <button disabled type="submit">
               Downloading task..
             </button>
@@ -150,34 +163,51 @@ const UploadFile = () => {
             {data.map((el, index) => (
               <div key={index} className={scss.card}>
                 {edit && el._id == edId ? (
-                  <>
+                  <form onSubmit={handleSubmitEdit(updateItem)}>
                     <div className={scss.img}>
                       <img src={el.img} alt="" />
                     </div>
                     <div className={scss.p}>
                       <input
-                        // {...register("title", { required: true })}
+                        {...registerEdit("title", { required: true })}
                         placeholder="New title"
                         type="text"
                       />
                     </div>
                     <input
-                      {...register("file", { required: true })}
+                      {...registerEdit("file", { required: true })}
                       type="file"
                     />
 
                     <div className={scss.btns}>
+                      {isSubmittingEdit ? (
+                        <button
+                          disabled
+                          type="button"
+                          color="secondary"
+                          aria-label="edit"
+                        >
+                          save...
+                        </button>
+                      ) : (
+                        <button
+                          type="submit"
+                          color="secondary"
+                          aria-label="edit"
+                        >
+                          save
+                        </button>
+                      )}
                       <button
-                        onClick={() => {
-                          handleSubmit(onSubmit);
-                        }}
+                        onClick={() => setEdit(false)}
+                        type="submit"
                         color="secondary"
                         aria-label="edit"
                       >
-                        save
+                        cancel
                       </button>
                     </div>
-                  </>
+                  </form>
                 ) : (
                   <>
                     <div className={scss.img}>
@@ -192,6 +222,7 @@ const UploadFile = () => {
                         onClick={() => {
                           setEdId(el._id);
                           setEdit(true);
+                          setValue("title", el.title);
                         }}
                         color="secondary"
                         aria-label="edit"
@@ -200,8 +231,7 @@ const UploadFile = () => {
                       </button>
                       <button
                         onClick={() => {
-                          setId(el._id);
-                          removeTodos(_id);
+                          removeTodos(el._id);
                         }}
                       >
                         delete
